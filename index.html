@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+	<title>BoidsInBrowser</title>
+	<style>
+		canvas {
+			border: solid thick black;
+			margin: 0 auto;
+		}
+	</style>
+</head>
+
+<body>
+	<canvas id="boids" style="width: 50%"></canvas>
+	<script src="Boid.js"></script>
+	<script>
+		let dpi = window.devicePixelRatio;
+		let canvas = document.getElementById('boids')
+		let context = canvas.getContext('2d')
+
+		// https://medium.com/wdstack/fixing-html5-2d-canvas-blur-8ebe27db07da
+		function fix_dpi() {
+			// get CSS height
+			// the + prefix casts to integer
+			// the slice method gets rid of "px"
+			let style_height = +getComputedStyle(canvas).getPropertyValue("height").slice(0, -2)
+			// get CSS width
+			let style_width = +getComputedStyle(canvas).getPropertyValue("width").slice(0, -2)
+			// scale the canvas
+			canvas.setAttribute('height', style_height * dpi)
+			canvas.setAttribute('width', style_width * dpi)
+		}
+
+		fix_dpi()
+
+		let x = canvas.width / 2
+		let y = canvas.height / 2
+		let testBoid = new Boid(x, y)
+		let boids = []
+		boids.push(testBoid)
+		// create some boids, some visible, some not.
+		boids.push(new Boid(x + 44, y))
+		boids.push(new Boid(x - 20, y))
+		boids.push(new Boid(x, y + 50))
+		boids.push(new Boid(x, y - 20))
+		boids.push(new Boid(x + 20, y + 20))
+		boids.push(new Boid(x + 20, y - 20))
+		boids.push(new Boid(x - 20, y + 20))
+		boids.push(new Boid(x - 20, y - 20))
+		console.log(testBoid.detectBoids(boids))
+		testBoid.drawVision(context)
+		for(boid of boids) {
+			boid.drawBoid(context)
+		}
+
+	</script>
+</body>
+
+</html>
