@@ -3,18 +3,26 @@
 I am fiddling with the famous 'boids' algorithm, which was [first published in 1987](https://www.red3d.com/cwr/papers/1987/boids.html) as a method to emulate the "aggregate motion of a flock of birds, a herd of land animals, or a school of fish." This method gives each "boid" independence from the flock, and each boid moves according to its local perception of an ever-changing environment. The fascinating part of this design is that with a few simple rules, a bunch of boids will flock together and move in a simple yet beautiful pattern.
 
 #### Added caveat: I'm challenging myself.
-Because I want to challenge myself a tiny bit when making this project. I haven't searched for tutorials or looked at any source code. In this project I only know what I have described below, and details from a few YouTube videos I watched to see what a good end result looks like (none of which included code or tutorials).
+Because I want to challenge myself a tiny bit when making this project. I haven't searched for tutorials or looked at any source code. In this project I only know what I have described below, and details from a few YouTube videos I watched to see what a good end result looks like (none of which included code or tutorials). In other words, I am going to completely implement this algorithm while having only read the abstract of the paper it is from.
 
 ## Rules of Motion: How to be a 'Boid'
 There are three main rules that each boid has to follow, they are called separation, aligment, and cohesion.
 ### Separation
-The boid doesn't want to become so crowded that it collides with other members of its flock. So they will remain distinctly apart from one another.
+The boid doesn't want to become so crowded that it collides with other members of its flock. So they will remain distinctly apart from one another. Separation is represented by the orange line protruding from the boid, it shows where the boid would want to go given only the separation rule.
+
+![](images/separation.png?raw=true)
 ### Alignment
-The boid wants to move with the flock. It will stee towards the average heading of local flockmates. In other words, if all of the boids around you are moving to the left, move to the left as well.
+The boid wants to move with the flock. It will stee towards the average heading of local flockmates. In other words, if all of the boids around you are moving to the left, move to the left as well. Alignment is represented by the green line, it shows where the boid would want to go given only the alignment rule.
+
+![](images/alignment.png?raw=true)
 ### Cohesion
-The boid wants to be as close to the center of the flock as possible. So it steers towards the average position of local flockmates.
+The boid wants to be as close to the center of the flock as possible. So it steers towards the average position of local flockmates. Cohesion is marked in yellow, with a dot marking the center of all visible boids, and a yellow line representing where the boid would want to go given only the cohesion rule.
+
+![](images/cohesion.png?raw=true)
 ### Applying these rules
-The astute observer may note that there are contradictions in these three rules, one cannot separate and be cohesive at the same time, these rules will be playing together and fighting against each other simultaneously to determine the boid's behavior.
+The astute observer may note that there are contradictions in these three rules, one cannot separate and be cohesive at the same time, these rules will be playing together and fighting against each other simultaneously to determine the boid's behavior. The blue line represents the final decision, a weighted average of all rules put together.
+
+![](images/decision.png?raw=true)
 #### Another rule I'm explicitly adding: Don't crash
 There will be one more rule, implicit but essential. Don't hit obstacles, running into other boids may be inevitable, but we should not hit the edge of the display, or any obstacles that we encounter. 
 ## Boid vision: How do Boids 'see'?
