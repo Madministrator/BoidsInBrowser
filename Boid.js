@@ -41,6 +41,11 @@ class Boid {
 	detectBoids(boids) {
 		// clear the current list of boids
 		this.vision.neighboringBoids = []
+		// declare some constants to determine vision behavior
+		// relative to the X axis for simplicity
+		const relDirection = (this.direction > Math.PI) ? this.direction - 2 * Math.PI : this.direction
+		const fov = Math.PI - this.vision.angle
+
 		for (let i = 0; i < boids.length; i++) {
 			if (boids[i] == this) {
 				continue // Skip the math and don't compare this to itself
@@ -51,10 +56,11 @@ class Boid {
 				Math.pow(boids[i].position.y - this.position.y, 2)))
 			// calculate the angle between the line drawn by these two points
 			// and the horizontal axis (in radians)
-			let angle = Math.abs(Math.atan2(boids[i].position.y - this.position.y, boids[i].position.x - this.position.x) - Math.PI)
-			console.log(`${angle} >= ${this.vision.angle}`)
+			const boidAngle = Math.atan2(boids[i].position.y - this.position.y, boids[i].position.x - this.position.x)
+			// calculate the smallest angle between the boid and this.direction
+			let angle = Math.abs(Math.atan2(Math.sin(boidAngle - relDirection), Math.cos(boidAngle - relDirection)))
 			if (distance < this.vision.radius // the boid is close enough to see
-				&& angle >= this.vision.angle) { // and is within the field of view
+				&& angle <= fov) { // and is within the field of view
 				this.vision.neighboringBoids.push(boids[i])
 			}
 		}
