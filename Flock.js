@@ -24,8 +24,8 @@ class Flock {
 		this.boids = []
 		for (let i = 0; i < size; i++) {
 			this.boids.push(
-				new Boid(Math.random() * this.canvas.clientWidth,
-					Math.random() * this.canvas.clientHeight,
+				new Boid(Math.random() * this.canvas.width,
+					Math.random() * this.canvas.height,
 					Math.random() * 2 * Math.PI, this.canvas.height * 0.05)
 			)
 		}
@@ -51,11 +51,12 @@ class Flock {
 	 * and position to both go in the requested direction, and animate as smooth as possible.
 	 */
 	moveFlock() {
-		const boidSpeed = 3 // move each boid 3 pixels per step
-		const maxTurn = Math.PI / 10 // turn at most this many radians, makes turns smoother and slower
+		const boidSpeed = 1 // move each boid 3 pixels per step
+		const maxTurn = Math.PI / 20 // turn at most this many radians, makes turns smoother and slower
 		let terminate = []
 		for (let i = 0; i < this.size(); i++) {
 			// ask each boid which way it wants to go
+			this.boids[i].detectObstacles([], this.canvas.clientWidth, this.canvas.clientHeight)
 			let desiredDirection = this.boids[i].decideDirection(this.boids)
 			// turn the boid in the desired direction
 			// calculate the smallest angle between the rays cast by the desired angle and the direction
@@ -84,24 +85,16 @@ class Flock {
 	}
 
 	/**
-	 * Draws the flock of boids once. Note on efficiency, if showVision and showDecision is false (or if the "once" parameters
-	 * are both true), efficiency is O(n). If one is true and the other is false, efficiency is O(n^2) if the corresponding 
-	 * "once" parameters are false. If both are true and their "once" parameters are false, efficiency becomes O(n^3). The 
-	 * defaults are made to be the most efficient version of the function.
-	 * @param {boolean} showVision Optional. Indictates if the boids should draw their vision area. Default is false
-	 * @param {boolean} visionOnce Optional. If verbose is true, just show vision area for one boid in the flock. Default is true.
-	 * @param {boolean} showDecision Optional, indicates if the boids should show their decision process. Default is false.
-	 * @param {boolean} decisionOnce Optional, If verbose is true, just show the decision process for one boid in the flock. Default is true.
+	 * Draws the flock of boids once.
 	 */
-	drawFlock(showVision = false, visionOnce = true,
-			showDecision = false, decisionOnce = true) {
+	drawFlock() {
 		// clear the canvas
 		this.ctx.clearRect(0, 0, this.canvas.clientWidth, this.canvas.clientWidth)
 		// Show boid vision if requested
 		if (this.verbosity.vision) {
 			if (this.verbosity.v1 && this.size() > 0) {
 				this.boids[0].drawVision(this.ctx)
-			} else {
+			} else if (this.size() > 0) {
 				for (let i = 0; i < this.size(); i++) {
 					this.boids[i].drawVision(this.ctx)
 				}
@@ -111,7 +104,7 @@ class Flock {
 		if (this.verbosity.decision) {
 			if (this.verbosity.d1 && this.size() > 0) {
 				this.boids[0].drawDecision(this.ctx)
-			} else {
+			} else if (this.size() > 0) {
 				for (let i = 0; i < this.size(); i++) {
 					this.boids[i].drawDecision(this.ctx)
 				}
