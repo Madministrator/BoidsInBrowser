@@ -36,20 +36,22 @@
 
 		let x = canvas.width / 2
 		let y = canvas.height / 2
-		let testBoid = new Boid(x, y)
+		let testBoid = new Boid(x, y)//, Math.random() * 2 * Math.PI)
+		testBoid.vision.angle = Math.PI / 2
 		let boids = []
 		boids.push(testBoid)
 		// create some boids, some visible, some not.
-		boids.push(new Boid(x + 44, y))
-		boids.push(new Boid(x - 20, y))
-		boids.push(new Boid(x, y + 50))
-		boids.push(new Boid(x, y - 20))
-		boids.push(new Boid(x + 20, y + 20))
-		boids.push(new Boid(x + 20, y - 20))
-		boids.push(new Boid(x - 20, y + 20))
-		boids.push(new Boid(x - 20, y - 20))
-		console.log(testBoid.detectBoids(boids))
+		boids.push(new Boid(x + 20, y, Math.random() * 2 * Math.PI))
+		boids.push(new Boid(x - 20, y, Math.random() * 2 * Math.PI))
+		boids.push(new Boid(x, y + 20, Math.random() * 2 * Math.PI))
+		boids.push(new Boid(x, y - 20, Math.random() * 2 * Math.PI))
+		boids.push(new Boid(x + 20, y + 20, Math.random() * 2 * Math.PI))
+		boids.push(new Boid(x + 20, y - 20, Math.random() * 2 * Math.PI))
+		boids.push(new Boid(x - 20, y + 20, Math.random() * 2 * Math.PI))
+		boids.push(new Boid(x - 20, y - 20, Math.random() * 2 * Math.PI))
+		testBoid.detectBoids(boids)
 		testBoid.drawVision(context)
+		// testBoid.decideDirection(context)
 		for(boid of boids) {
 			boid.drawBoid(context)
 		}
