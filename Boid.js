@@ -154,6 +154,7 @@ class Boid {
 		cohesionY /= this.vision.neighboringBoids.length
 		// Get the angle to the cohesion point
 		cohesion = Math.atan2(cohesionY - this.position.y, cohesionX - this.position.x)
+		cohesion += (cohesion < 0) ? 2 * Math.PI : 0
 		alignment /= this.vision.neighboringBoids.length
 		// Get the direction away from all other boids
 		separation /= this.vision.neighboringBoids.length
