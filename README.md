@@ -2,6 +2,9 @@
 
 I am fiddling with the famous 'boids' algorithm, which was [first published in 1987](https://www.red3d.com/cwr/papers/1987/boids.html) as a method to emulate the "aggregate motion of a flock of birds, a herd of land animals, or a school of fish." This method gives each "boid" independence from the flock, and each boid moves according to its local perception of an ever-changing environment. The fascinating part of this design is that with a few simple rules, a bunch of boids will flock together and move in a simple yet beautiful pattern.
 
+#### Added caveat: I'm challenging myself.
+Because I want to challenge myself a tiny bit when making this project. I haven't searched for tutorials or looked at any source code. In this project I only know what I have described below, and details from a few YouTube videos I watched to see what a good end result looks like (none of which included code or tutorials).
+
 ## Rules of Motion: How to be a 'Boid'
 There are three main rules that each boid has to follow, they are called separation, aligment, and cohesion.
 ### Separation
