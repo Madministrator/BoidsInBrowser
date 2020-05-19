@@ -14,48 +14,30 @@
 <body>
 	<canvas id="boids" style="width: 50%"></canvas>
 	<script src="Boid.js"></script>
+	<script src="Flock.js"></script>
 	<script>
-		let dpi = window.devicePixelRatio;
 		let canvas = document.getElementById('boids')
 		let context = canvas.getContext('2d')
 
-		// https://medium.com/wdstack/fixing-html5-2d-canvas-blur-8ebe27db07da
-		function fix_dpi() {
-			// get CSS height
-			// the + prefix casts to integer
-			// the slice method gets rid of "px"
-			let style_height = +getComputedStyle(canvas).getPropertyValue("height").slice(0, -2)
-			// get CSS width
-			let style_width = +getComputedStyle(canvas).getPropertyValue("width").slice(0, -2)
-			// scale the canvas
-			canvas.setAttribute('height', style_height * dpi)
-			canvas.setAttribute('width', style_width * dpi)
+		let flock = new Flock(canvas, window, 10)
+		let raf // for animation
+		// flock.moveFlock()
+		// flock.drawFlock(true, false, true, false)
+		
+		function animate() {
+			flock.step()
+			raf = window.requestAnimationFrame(animate)
 		}
 
-		fix_dpi()
-
-		let x = canvas.width / 2
-		let y = canvas.height / 2
-		let testBoid = new Boid(x, y, Math.random() * 2 * Math.PI)
-		// testBoid.vision.angle = Math.PI / (Math.random() * 8 + 1)
-		let boids = []
-		boids.push(testBoid)
-		// create some boids, some visible, some not.
-		boids.push(new Boid(x + 20, y, Math.random() * 2 * Math.PI)) // right
-		boids.push(new Boid(x - 20, y, Math.random() * 2 * Math.PI)) // left
-		boids.push(new Boid(x, y + 20, Math.random() * 2 * Math.PI)) // bottom
-		boids.push(new Boid(x, y - 20, Math.random() * 2 * Math.PI)) // top
-		boids.push(new Boid(x + 30, y + 30, Math.random() * 2 * Math.PI)) // bottom right
-		boids.push(new Boid(x + 30, y - 30, Math.random() * 2 * Math.PI)) // top right
-		boids.push(new Boid(x - 30, y + 30, Math.random() * 2 * Math.PI)) // bottom left
-		boids.push(new Boid(x - 30, y - 30, Math.random() * 2 * Math.PI)) // top left
-		testBoid.detectBoids(boids)
-		// testBoid.drawVision(context)
-		testBoid.decideDirection(context)
-		for(boid of boids) {
-			boid.drawBoid(context)
+		function play() {
+			raf = window.requestAnimationFrame(animate)
 		}
 
+		function pause() {
+			window.cancelAnimationFrame(raf)
+		}
+
+		play()
 	</script>
 </body>
 

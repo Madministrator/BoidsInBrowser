@@ -30,6 +30,16 @@ class Boid {
 			x: startX || 0,
 			y: startY || 0
 		}
+
+		// Decision information for drawing the decision process
+		this.decision = {
+			cohesionX: undefined,
+			cohesionY: undefined,
+			cohesion: undefined,
+			alignment: undefined,
+			separation: undefined,
+			final: this.startDirection
+		}
 	}
 
 	/**
@@ -96,45 +106,37 @@ class Boid {
 	 * Alignment: The Average direction of all visible flockmates
 	 * Separation: Do not overcrowd the flock
 	 * Don't Crash: Avoid obstacles and the edge of the display (To be implemented later - I need obstacle vision)
-	 * 
-	 * @param {CanvasRenderingContext2D} ctx The rendering context of the canvas. If given, the boid will draw representations
-	 *                                      of its decision making process on the canvas.
+	 * @param {Array<Boid>} boids Optional. An array of boid objects which could be flockmates to be factored into the decision.
 	 * @returns {number} a number indicating the angle (in radians) the boid ought to go based on its decision making principles.
 	 */
-	decideDirection(ctx) {
+	decideDirection(boids) {
+		if (boids != undefined) {
+			this.detectBoids(boids)
+		}
 		if (this.vision.neighboringBoids.length == 0) {
 			// We don't see anything, maintain course
-			if (ctx != undefined) {
-				// Draw the decision of "maintain course"
-				ctx.save()
-				// Set up for drawing arrows from the center of the boid
-				ctx.translate(this.position.x, this.position.y)
-				ctx.lineWidth = this.appearance.boidSize / 8
-				// Draw Cohesion Decision
-				ctx.beginPath()
-				ctx.strokeStyle = 'blue'
-				ctx.moveTo(0,0)
-				ctx.lineTo(
-					this.appearance.boidSize * Math.cos(this.direction),
-					this.appearance.boidSize * Math.sin(this.direction)
-				)
-				ctx.stroke()
-				ctx.restore()
-			}
+			// show that we didn't factor other rules in this decision
+			this.decision.cohesionX = undefined
+			this.decision.cohesionY = undefined
+			this.decision.cohesion = undefined
+			this.decision.alignment = undefined
+			this.decision.separation = undefined
 			// end early to prevent more math
-			return this.direction
+			this.decision.final = this.direction
+			return this.decision.final
 		}
-		let cohesionX = 0
-		let cohesionY = 0
-		let cohesion = 0
-		let alignment = 0
+		//setup this.decision struct
+		this.decision.cohesionX = 0
+		this.decision.cohesionY = 0
+		this.decision.cohesion = 0
+		this.decision.alignment = 0
+		this.decision.separation = 0
 		let shortestDistance = this.vision.radius + 1 // guarentees at least one visible boid will be shortest
-		let separation = 0
 		for(let i = 0; i < this.vision.neighboringBoids.length; i++) {
 			// Get the aggregate sum of coordinates and direction for averages
-			cohesionX += this.vision.neighboringBoids[i].position.x
-			cohesionY += this.vision.neighboringBoids[i].position.y
-			alignment += this.vision.neighboringBoids[i].direction
+			this.decision.cohesionX += this.vision.neighboringBoids[i].position.x
+			this.decision.cohesionY += this.vision.neighboringBoids[i].position.y
+			this.decision.alignment += this.vision.neighboringBoids[i].direction
 			// calculate the distance between this and that boid
 			let distance = Math.abs(Math.sqrt(
 				Math.pow(this.vision.neighboringBoids[i].position.x - this.position.x, 2) +
@@ -147,17 +149,17 @@ class Boid {
 			// get the angle of each boid
 			const boidAngle = Math.atan2(this.vision.neighboringBoids[i].position.y - this.position.y,
 				this.vision.neighboringBoids[i].position.x - this.position.x)
-			separation += boidAngle + Math.PI // add the opposite direction
+			this.decision.separation += boidAngle + Math.PI // add the opposite direction
 		}
 		// Get the X and Y coordinates of the cohesion point
-		cohesionX /= this.vision.neighboringBoids.length
-		cohesionY /= this.vision.neighboringBoids.length
+		this.decision.cohesionX /= this.vision.neighboringBoids.length
+		this.decision.cohesionY /= this.vision.neighboringBoids.length
 		// Get the angle to the cohesion point
-		cohesion = Math.atan2(cohesionY - this.position.y, cohesionX - this.position.x)
-		cohesion += (cohesion < 0) ? 2 * Math.PI : 0
-		alignment /= this.vision.neighboringBoids.length
+		this.decision.cohesion = Math.atan2(this.decision.cohesionY - this.position.y, this.decision.cohesionX - this.position.x)
+		this.decision.cohesion += (this.decision.cohesion < 0) ? 2 * Math.PI : 0
+		this.decision.alignment /= this.vision.neighboringBoids.length
 		// Get the direction away from all other boids
-		separation /= this.vision.neighboringBoids.length
+		this.decision.separation /= this.vision.neighboringBoids.length
 
 		/* Make a decision by using a weighted average of all factors.
 			cohesion and separation compete with each other through a weight
@@ -165,67 +167,12 @@ class Boid {
 		*/
 		let distanceWeight = (shortestDistance / this.vision.radius)
 		let alignmentWeight = 1.0 // How should I determine this? maybe compete with obstacles?
-		let decision = separation * distanceWeight
-		decision += cohesion * (1 - distanceWeight)
-		decision += alignment * alignmentWeight
-		decision /= 3
+		this.decision.final = this.decision.separation * (1 - distanceWeight)
+		this.decision.final += this.decision.cohesion * distanceWeight
+		this.decision.final += this.decision.alignment * alignmentWeight
+		this.decision.final /= 3
 
-		if (ctx != undefined) {
-			ctx.save()
-			/* Draw the decision making process:
-				- yellow Dot: The average of all flockmate positions (Cohesion)
-				- yellow arrow: The direction to the yellow dot
-				- Green Arrow: The average direction of all flockmates (Alignment)
-				- Orange Arrow: The best (separation) direction
-				- Red Arrow: The best "Don't Crash" direction
-				- Blue Arrow: Ultimately where the boid decided to go
-			*/
-			// Draw Cohesion Decision
-			ctx.beginPath()
-			ctx.fillStyle = 'yellow'
-			ctx.arc(cohesionX, cohesionY, this.appearance.boidSize / 4, 0, 2 * Math.PI)
-			ctx.fill()
-			// Set up for drawing arrows from the center of the boid
-			ctx.translate(this.position.x, this.position.y)
-			ctx.lineWidth = this.appearance.boidSize / 8
-			// Draw Cohesion Decision
-			ctx.beginPath()
-			ctx.strokeStyle = 'yellow'
-			ctx.moveTo(0,0)
-			ctx.lineTo(
-				this.appearance.boidSize * Math.cos(cohesion),
-				this.appearance.boidSize * Math.sin(cohesion)
-			)
-			ctx.stroke()
-			// Draw Alignment Decision
-			ctx.beginPath()
-			ctx.strokeStyle = 'green'
-			ctx.moveTo(0, 0)
-			ctx.lineTo(
-				this.appearance.boidSize * Math.cos(alignment),
-				this.appearance.boidSize * Math.sin(alignment))
-			ctx.stroke()
-			// Draw Separation Decision
-			ctx.beginPath()
-			ctx.strokeStyle = 'orange'
-			ctx.moveTo(0,0)
-			ctx.lineTo(
-				this.appearance.boidSize * Math.cos(separation),
-				this.appearance.boidSize * Math.sin(separation))
-			ctx.stroke()
-			// TODO draw obstacle avoidance decision
-			// Draw Final Decision
-			ctx.beginPath()
-			ctx.strokeStyle = 'blue'
-			ctx.moveTo(0,0)
-			ctx.lineTo(
-				this.appearance.boidSize * Math.cos(decision),
-				this.appearance.boidSize * Math.sin(decision))
-			ctx.stroke()
-			ctx.restore()
-		}
-
-		return decision
+		return this.decision.final
 	}
 
 
@@ -295,5 +242,71 @@ class Boid {
 
 		// restore the context state to not interfere with other drawing functions
 		ctx.restore()
+	}
+
+	/**
+	 * Draws the decision making process of the boid with the following pattern:
+	 * Yellow Dot: The average of all flockmate positions (Cohesion)
+	 * Yellow Arrow: The direction to the yellow dot.
+	 * Green Arrow: The average direction of all flockmates (Alighment)
+	 * Orange Arrow: The best (separation) direction
+	 * Red Arrow: The best "don't crash" direction (not implemented)
+	 * Blue Arrow: Ultimately where the boid decided to go.
+	 * @param {CanvasRenderingContext2D} ctx The context of the canvas we want to draw to.
+	 */
+	drawDecision(ctx) {
+		ctx.save() // preserve previous state before changing state
+		if (this.decision.cohesionX != undefined && this.decision.cohesionY != undefined) {
+			ctx.beginPath()
+			ctx.fillStyle = 'yellow'
+			ctx.arc(this.decision.cohesionX, this.decision.cohesionY,
+				this.appearance.boidSize / 4, 0, 2 * Math.PI)
+			ctx.fill()
+		}
+		// set up for drawing arrows from the center of this boid
+		ctx.translate(this.position.x, this.position.y)
+		ctx.lineWidth = this.appearance.boidSize / 8
+		// Draw Cohesion rule
+		if (this.decision.cohesion != undefined) {
+			ctx.beginPath()
+			ctx.strokeStyle = 'yellow'
+			ctx.moveTo(0,0)
+			ctx.lineTo(
+				this.appearance.boidSize * Math.cos(this.decision.cohesion),
+				this.appearance.boidSize * Math.sin(this.decision.cohesion)
+			)
+			ctx.stroke()
+		}
+		// Draw alignment rule
+		if (this.decision.alignment != undefined) {
+			ctx.beginPath()
+			ctx.strokeStyle = 'green'
+			ctx.moveTo(0, 0)
+			ctx.lineTo(
+				this.appearance.boidSize * Math.cos(this.decision.alignment),
+				this.appearance.boidSize * Math.sin(this.decision.alignment))
+			ctx.stroke()
+		}
+		// Draw separation rule
+		if (this.decision.separation) {
+			ctx.beginPath()
+			ctx.strokeStyle = 'orange'
+			ctx.moveTo(0,0)
+			ctx.lineTo(
+				this.appearance.boidSize * Math.cos(this.decision.separation),
+				this.appearance.boidSize * Math.sin(this.decision.separation))
+			ctx.stroke()
+		}
+		// Draw final decision
+		if (this.decision.final != undefined) {
+			ctx.beginPath()
+			ctx.strokeStyle = 'blue'
+			ctx.moveTo(0,0)
+			ctx.lineTo(
+				this.appearance.boidSize * Math.cos(this.decision.final),
+				this.appearance.boidSize * Math.sin(this.decision.final))
+			ctx.stroke()
+		}
+		ctx.restore() // undo any changes to state
 	}
 }
