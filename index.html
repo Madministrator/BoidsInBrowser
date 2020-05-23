@@ -6,13 +6,19 @@
 	<style>
 		canvas {
 			border: solid thick black;
-			margin: 0 auto;
+			margin-left: auto;
+			margin-right: auto;
+		}
+		button {
+			display:block;
 		}
 	</style>
 </head>
 
 <body>
-	<canvas id="boids" style="width: 50%"></canvas>
+	<canvas id="boids" style="width: 95%"></canvas>
+	<button onClick="pause()">Pause</button>
+	<button onClick="play()">Play</button>
 	<script src="Boid.js"></script>
 	<script src="Flock.js"></script>
 	<script>
@@ -21,9 +27,9 @@
 
 		let flock = new Flock(canvas, window, 50)
 		flock.verbosity.vision = true
-		flock.verbosity.v1 = false
+		flock.verbosity.v1 = true
 		flock.verbosity.decision = true
-		flock.verbosity.v1 = false
+		flock.verbosity.d1 = true
 		let raf // for animation
 		
 		function animate() {

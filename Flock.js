@@ -23,12 +23,21 @@ class Flock {
 		let size = initialSize || 5
 		this.boids = []
 		for (let i = 0; i < size; i++) {
-			this.boids.push(
-				new Boid(Math.random() * this.canvas.width,
-					Math.random() * this.canvas.height,
-					Math.random() * 2 * Math.PI, this.canvas.height * 0.05)
-			)
+			this.addRandomBoid()
 		}
+		// Test Corners
+		// this.boids.push(new Boid(
+		// 	80, 80, 5 * Math.PI / 4
+		// ))
+		// this.boids.push(new Boid(
+		// 	this.canvas.width - 80, 80, 7 * Math.PI / 4
+		// ))
+		// this.boids.push(new Boid(
+		// 	80, this.canvas.height - 80, 3 * Math.PI / 4
+		// ))
+		// this.boids.push(new Boid(
+		// 	this.canvas.width - 80, this.canvas.height - 80, Math.PI / 4
+		// ))
 
 		this.verbosity = {
 			vision: false,
@@ -47,12 +56,23 @@ class Flock {
 	}
 
 	/**
+	 * Adds a boid at a random location and orientation
+	 */
+	addRandomBoid() {
+		this.boids.push(new Boid(
+				Math.random() * this.canvas.width,
+				Math.random() * this.canvas.height,
+				Math.random() * 2 * Math.PI, this.canvas.height * 0.03
+		))
+	}
+
+	/**
 	 * Asks each of the boids where they wish to go and then modifies each boid's direction
 	 * and position to both go in the requested direction, and animate as smooth as possible.
 	 */
 	moveFlock() {
-		const boidSpeed = 1 // move each boid 3 pixels per step
-		const maxTurn = Math.PI / 20 // turn at most this many radians, makes turns smoother and slower
+		const boidSpeed = 1.5 // move each boid 3 pixels per step
+		const maxTurn = Math.PI / 30 // turn at most this many radians, makes turns smoother and slower
 		let terminate = []
 		for (let i = 0; i < this.size(); i++) {
 			// ask each boid which way it wants to go
@@ -81,6 +101,8 @@ class Flock {
 		terminate.reverse()
 		for(let i = 0; i < terminate.length; i++) {
 			this.boids.splice(terminate[i], 1)
+			this.addRandomBoid()
+			console.log("Boid Replaced")
 		}
 	}
 

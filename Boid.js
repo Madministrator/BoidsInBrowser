@@ -20,7 +20,7 @@ class Boid {
 		// variables specifically related to their vision
 		this.vision = {
 			angle: Math.PI / 4,
-			radius: this.appearance.boidSize * 3,
+			radius: this.appearance.boidSize * 4,
 			neighboringBoids: [],
 			obstacles: []
 		}
@@ -61,15 +61,36 @@ class Boid {
 		if (distance <= this.vision.radius) {
 			// calculate the angle between the line drawn by these two points
 			// and the horizontal axis (in radians)
-			const targetAngle = Math.atan2(y - this.position.y,
-				x - this.position.x)
-			// calculate the smallest angle between the boid and this.direction
-			let angle = Math.abs(Math.atan2(Math.sin(targetAngle - relDirection), Math.cos(targetAngle - relDirection)))
-			if (angle <= fov) { // boid is within the field of view
+			const targetAngle = Math.atan2(y - this.position.y, x - this.position.x)
+			if (Math.abs(this.distanceBetweenAngles(targetAngle, relDirection)) <= fov) { // boid is within the field of view
 				return true
 			}
 		}
 		return false
+	}
+
+	/**
+	 * A utility function which finds the smallest angle between two angles.
+	 * @param {number} a an angle in radians
+	 * @param {number} b an angle in radians
+	 * @returns The difference between angles a and b in radians, preserving signs.
+	 */
+	distanceBetweenAngles(a, b) {
+		return Math.atan2(Math.sin(a - b), Math.cos(a - b))
+	}
+
+	/**
+	 * Constrains an input to the range 0 to 2 * Math.PI, inclusive
+	 * @param {number} theta 
+	 */
+	constrainAngle(theta) {
+		while (theta < 0) {
+			theta += 2 * Math.PI
+		}
+		while (theta > 2 * Math.PI) {
+			theta -= 2 * Math.PI
+		}
+		return theta
 	}
 
 	/**
@@ -83,7 +104,8 @@ class Boid {
 	}
 
 	/**
-	 * 
+	 * Given the coordinates of all obstacles on the canvas, plus the dimensions of the canvas,
+	 * detect all obstacles within the field of view of this boid.
 	 * @param {Array<Object>} obstacles A series of coordinates in the format {x: number, y: number}
 	 * @param {number} width the width of the canvas
 	 * @param {number} height the height of the canvas
@@ -168,7 +190,12 @@ class Boid {
 	    visible boids and m is the number of visible obstacles, including the edges of the display.
 
 	    As such, I have to implement this entire decision making process inside one function to
-	    keep the efficiency in O(n*m), which is important once I reach a large number of boids.
+		keep the efficiency in O(n*m), which is important once I reach a large number of boids.
+		
+		PROBLEM NOTES:
+		- The biggest problem with these angle averaging methods is that although 0 and 2PI are
+			supposed to be treated the same in the averaging, they are in fact radically different.
+		- Watch my negatives!
 	*/
 
 	/**
@@ -197,10 +224,13 @@ class Boid {
 						this.vision.obstacles[i].y)
 					// treat obstacle behavior like separation behavior
 					const obsAngle = Math.atan2(this.vision.obstacles[i].y - this.position.y,
-						this.vision.obstacles[i].x - this.position.x) + Math.PI
-					this.decision.avoidance += (obsAngle >= 2 * Math.PI) ? obsAngle - 2 * Math.PI : obsAngle
+						this.vision.obstacles[i].x - this.position.x)
+					let preAdd = this.decision.avoidance
+					this.decision.avoidance += (obsAngle < Math.PI) ? obsAngle + Math.PI : obsAngle - Math.PI
+					if (!Math.abs(preAdd) < 0.001) { // floating point equivalence
+						this.decision.avoidance /= 2
+					}
 				}
-				this.decision.avoidance /= this.vision.obstacles.length
 				this.decision.final = this.decision.avoidance
 			} else {
 				this.decision.avoidance = undefined
@@ -260,28 +290,33 @@ class Boid {
 				closestObstacle = distance
 			}
 			// treat obstacle behavior like separation behavior
+			// treat obstacle behavior like separation behavior
 			const obsAngle = Math.atan2(this.vision.obstacles[i].y - this.position.y,
-				this.vision.obstacles[i].x - this.position.x) + Math.PI
-			this.decision.avoidance += (obsAngle >= 2 * Math.PI) ? obsAngle - 2 * Math.PI : obsAngle
+				this.vision.obstacles[i].x - this.position.x)
+			let preAdd = this.decision.avoidance
+			this.decision.avoidance += (obsAngle < Math.PI) ? obsAngle + Math.PI : obsAngle - Math.PI
+			if (!Math.abs(preAdd) < 0.001) { // floating point equivalence
+				this.decision.avoidance /= 2
+			}
 		}
-		if (this.vision.obstacles.length >= 0) { // avoid divide by zero errors.
-			this.decision.avoidance /= this.vision.obstacles.length
-		}
-		/* Make a decision by using a weighted average of all factors.
-			cohesion and separation compete with each other through a weight
-			Given by the closest boid to this boid.
-		*/
-		let distanceWeight = closestBoid / this.vision.radius
-		let alignmentWeight = closestObstacle / this.vision.radius
-		this.decision.final = this.decision.separation * (1 - distanceWeight)
-		this.decision.final += this.decision.cohesion * distanceWeight
-		this.decision.final += this.decision.alignment * alignmentWeight
-		if (this.vision.obstacles.length > 0) {
-			this.decision.final += this.decision.avoidance * (1 - alignmentWeight)
-			this.decision.final /= 4
+
+		if (this.vision.obstacles.length > 0 && closestObstacle < this.vision.radius / 2) {
+			// the closest obstacle is too close, don't crash.
+			this.decision.final = this.decision.avoidance
 		} else {
-			this.decision.final /= 3
+			// this.decision.final = this.decision.alignment
+			if (closestBoid < this.vision.radius / 3.5) {
+				// use separation rule to keep a distance
+				let adjustment = this.distanceBetweenAngles(this.decision.alignment, this.decision.separation) * 0.1
+				this.decision.final = this.decision.alignment + adjustment
+			} else {
+				// use cohesion rule to get a little closer to our friends
+				let adjustment = this.distanceBetweenAngles(this.decision.alignment, this.decision.cohesion) * 0.1
+				this.decision.final = this.decision.alignment + adjustment
+			}
 		}
+
+		// TODO: Add some noise to the final decision
 
 		return this.decision.final
 	}
@@ -349,8 +384,6 @@ class Boid {
 			ctx.lineTo(this.vision.neighboringBoids[i].position.x, this.vision.neighboringBoids[i].position.y)
 			ctx.stroke()
 		}
-		// TODO: Draw a line between this boid and all obstacles it sees (marked with red line)
-
 		// restore the context state to not interfere with other drawing functions
 		ctx.restore()
 	}
