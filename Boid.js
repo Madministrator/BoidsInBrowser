@@ -61,7 +61,7 @@ class Boid {
 		if (distance <= this.vision.radius) {
 			// calculate the angle between the line drawn by these two points
 			// and the horizontal axis (in radians)
-			const targetAngle = Math.atan2(y - this.position.y, x - this.position.x)
+			const targetAngle = this.angleTo(x, y)
 			if (Math.abs(this.distanceBetweenAngles(targetAngle, relDirection)) <= fov) { // boid is within the field of view
 				return true
 			}
@@ -77,6 +77,17 @@ class Boid {
 	 */
 	distanceBetweenAngles(a, b) {
 		return Math.atan2(Math.sin(a - b), Math.cos(a - b))
+	}
+
+	/**
+	 * Finds the angle from this boid to any point, relative to the X-axis
+	 * @param {number} x the X-coordinate of the point in interest
+	 * @param {number} y the Y-coordinate of the point in interest
+	 * @returns {number} The angle to the point from this boid in radians.
+	 * 						In range -Math.PI (exclusive) to Math.PI (inclusive)
+	 */
+	angleTo(x, y) {
+		return Math.atan2(y - this.position.y, x - this.position.x)
 	}
 
 	/**
@@ -222,9 +233,8 @@ class Boid {
 				for (let i = 0; i < this.vision.obstacles.length; i++) {
 					let distance = this.distanceTo(this.vision.obstacles[i].x,
 						this.vision.obstacles[i].y)
-					// treat obstacle behavior like separation behavior
-					const obsAngle = Math.atan2(this.vision.obstacles[i].y - this.position.y,
-						this.vision.obstacles[i].x - this.position.x)
+					// Find the angle away from all obstacles
+					const obsAngle = this.angleTo(this.vision.obstacles[i].x, this.vision.obstacles[i].y)
 					let preAdd = this.decision.avoidance
 					this.decision.avoidance += (obsAngle < Math.PI) ? obsAngle + Math.PI : obsAngle - Math.PI
 					if (!Math.abs(preAdd) < 0.001) { // floating point equivalence
@@ -269,20 +279,20 @@ class Boid {
 				closestBoid = distance
 			}
 			// determine separation behavior "go in the opposite direction of all the boids"
-			// get the angle of each boid
-			const boidAngle = Math.atan2(this.vision.neighboringBoids[i].position.y - this.position.y,
-				this.vision.neighboringBoids[i].position.x - this.position.x) + Math.PI
-			this.decision.separation += (boidAngle >= 2 * Math.PI) ? boidAngle - 2 * Math.PI : boidAngle
+			let preAdd = this.decision.separation
+			const boidAngle = this.angleTo(this.vision.neighboringBoids[i].position.x,
+				this.vision.neighboringBoids[i].position.y)
+			this.decision.separation += (boidAngle < Math.PI) ? boidAngle + Math.PI : boidAngle - Math.PI
+			if (!Math.abs(preAdd) < 0.001) {
+				this.decision.separation /=2
+			}
 		}
 		// Get the X and Y coordinates of the cohesion point
 		this.decision.cohesionX /= this.vision.neighboringBoids.length
 		this.decision.cohesionY /= this.vision.neighboringBoids.length
 		// Get the angle to the cohesion point
-		this.decision.cohesion = Math.atan2(this.decision.cohesionY - this.position.y, this.decision.cohesionX - this.position.x)
-		this.decision.cohesion += (this.decision.cohesion < 0) ? 2 * Math.PI : 0
+		this.decision.cohesion = this.angleTo(this.decision.cohesionX, this.decision.cohesionY)
 		this.decision.alignment /= this.vision.neighboringBoids.length
-		// Get the direction away from all other boids
-		this.decision.separation /= this.vision.neighboringBoids.length
 		// Determine obstacle avoidance behavior
 		for (let i = 0; i < this.vision.obstacles.length; i++) {
 			let distance = this.distanceTo(this.vision.obstacles[i].x,
@@ -293,8 +303,7 @@ class Boid {
 			}
 			// treat obstacle behavior like separation behavior
 			// treat obstacle behavior like separation behavior
-			const obsAngle = Math.atan2(this.vision.obstacles[i].y - this.position.y,
-				this.vision.obstacles[i].x - this.position.x)
+			const obsAngle = this.angleTo(this.vision.obstacles[i].x, this.vision.obstacles[i].y)
 			let preAdd = this.decision.avoidance
 			this.decision.avoidance += (obsAngle < Math.PI) ? obsAngle + Math.PI : obsAngle - Math.PI
 			if (!Math.abs(preAdd) < 0.001) { // floating point equivalence
@@ -309,16 +318,16 @@ class Boid {
 			this.appearance.boidColor = 'red'
 		} else {
 			// this.decision.final = this.decision.alignment
-			if (closestBoid < this.vision.radius / 3.5) {
+			if (closestBoid < this.appearance.boidSize * 2) {
 				// use separation rule to keep a distance
-				let adjustment = this.distanceBetweenAngles(this.decision.alignment, this.decision.separation) * 0.2
+				let adjustment = this.distanceBetweenAngles(this.decision.alignment, this.decision.separation) * 0.6
 				this.appearance.boidColor = 'orange'
-				this.decision.final = this.decision.alignment + adjustment
+				this.decision.final = this.decision.alignment - adjustment
 			} else {
 				// use cohesion rule to get a little closer to our friends
 				let adjustment = this.distanceBetweenAngles(this.decision.alignment, this.decision.cohesion) * 0.4
 				this.appearance.boidColor = 'yellow'
-				this.decision.final = this.decision.alignment + adjustment
+				this.decision.final = this.decision.alignment - adjustment
 			}
 		}
 

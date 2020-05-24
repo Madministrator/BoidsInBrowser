@@ -25,7 +25,7 @@
 		let canvas = document.getElementById('boids')
 		let context = canvas.getContext('2d')
 
-		let flock = new Flock(canvas, window, 50)
+		let flock = new Flock(canvas, window, 100)
 		flock.verbosity.vision = true
 		flock.verbosity.v1 = true
 		flock.verbosity.decision = true
@@ -47,12 +47,6 @@
 
 		play()
 
-		// let testBoid = new Boid(20, 20, 8 * Math.PI / 6)
-		// console.log(testBoid.detectObstacles([{x:15,y:1}], canvas.clientWidth, canvas.clientHeight))
-		// console.log(testBoid.decideDirection([]))
-		// testBoid.drawVision(context)
-		// testBoid.drawDecision(context)
-		// testBoid.drawBoid(context)
 	</script>
 </body>
 
