@@ -71,17 +71,18 @@ class Flock {
 	 * Adds a boid at the specified coordinates
 	 * @param {number} x the x coordinate of the new boid
 	 * @param {number} y the y coordinate of the new boid
+	 * @param {number} theta the initial direction of the boid, in radians, bound between -Math.PI and Math.PI
 	 */
-	addBoid(x, y) {
+	addBoid(x, y, theta) {
+		// apply constraints
 		if (x < 0) { x = 0 }
 		if (x > this.canvas.width) { x = this.canvas.width }
 		if (y < 0) { y = 0 }
 		if (y > this.canvas.width) { y = this.canvas.height }
-		this.boids.push(new Boid(
-			x, y,
-			-(Math.random() * 2 * Math.PI - Math.PI),
-			this.canvas.height * 0.03
-		))
+		if (theta == undefined) { theta = -(Math.random() * 2 * Math.PI - Math.PI) }
+		while (theta <= -Math.PI) { theta += 2 * Math.PI }
+		while (theta >= Math.PI) { theta -= 2 * Math.PI }
+		this.boids.push(new Boid(x, y, theta, this.canvas.height * 0.03))
 	}
 
 	/**

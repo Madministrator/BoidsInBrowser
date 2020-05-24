@@ -231,6 +231,8 @@ class Boid {
 			this.decision.cohesion = undefined
 			this.decision.alignment = undefined
 			this.decision.separation = undefined
+			// Add some noise to the final decision
+			if (Math.random() < 0.1) { this.decision.final += (Math.random() - 0.5) * Math.PI / 20 }
 			return this.decision.final
 		}
 		//setup this.decision struct
@@ -247,12 +249,11 @@ class Boid {
 			this.decision.cohesionX += this.vision.neighboringBoids[i].position.x
 			this.decision.cohesionY += this.vision.neighboringBoids[i].position.y
 			// Determine how this boid affects the alignment rule
-			const neighborDirection = this.distanceBetweenAngles(0, this.vision.neighboringBoids[i].direction)
+			const neighborDirection = this.distanceBetweenAngles(this.decision.alignment, this.vision.neighboringBoids[i].direction)
 			if (Math.abs(this.decision.alignment) > alpha) {
-				this.decision.alignment += neighborDirection
-				this.decision.alignment /= 2
+				this.decision.alignment -= neighborDirection / 2
 			} else {
-				this.decision.alignment += neighborDirection
+				this.decision.alignment = neighborDirection
 			}
 
 			// calculate the distance between this and that boid
@@ -262,7 +263,6 @@ class Boid {
 			// determine separation behavior "go in the opposite direction of all the boids"
 			if (distance < this.appearance.boidSize * 2) {
 				separationTriggered = true
-				let preAdd = this.decision.separation
 				const boidAngle = this.angleTo(this.vision.neighboringBoids[i].position.x,
 					this.vision.neighboringBoids[i].position.y)
 				if (Math.abs(this.decision.separation) < alpha) {
@@ -287,16 +287,16 @@ class Boid {
 				closestObstacle = distance
 			}
 			// treat obstacle behavior like separation behavior
-			// treat obstacle behavior like separation behavior
 			const obsAngle = this.angleTo(this.vision.obstacles[i].x, this.vision.obstacles[i].y)
-			let preAdd = this.decision.avoidance
-			this.decision.avoidance += (obsAngle < Math.PI) ? obsAngle + Math.PI : obsAngle - Math.PI
-			if (!Math.abs(preAdd) < alpha) { // floating point equivalence
+			if (Math.abs(this.decision.avoidance) > alpha) {
+				this.decision.avoidance += (obsAngle < Math.PI) ? obsAngle + Math.PI : obsAngle - Math.PI
 				this.decision.avoidance /= 2
+			} else {
+				this.decision.avoidance += (obsAngle < Math.PI) ? obsAngle + Math.PI : obsAngle - Math.PI
 			}
 		}
 
-		// Apply Constraints to the range of each factor
+		// Apply Constraints to the range of each rule
 		while (this.decision.separation <= -Math.PI) { this.decision.separation += 2 * Math.PI }
 		while (this.decision.separation > Math.PI) { this.decision.separation -= 2 * Math.PI }
 		while (this.decision.cohesion <= -Math.PI) { this.decision.cohesion += 2 * Math.PI }
@@ -326,7 +326,8 @@ class Boid {
 			this.decision.final -= this.distanceBetweenAngles(this.decision.final, this.decision.avoidance) * 0.7
 		}
 
-		// TODO: Add some noise to the final decision
+		// Add some noise to the final decision
+		if (Math.random() < 0.1) { this.decision.final += (Math.random() - 0.5) * Math.PI / 30 }
 
 		return this.decision.final
 	}

@@ -26,7 +26,7 @@
 		let canvas = document.getElementById('boids')
 		let context = canvas.getContext('2d')
 
-		let flock = new Flock(canvas, window, 15)
+		let flock = new Flock(canvas, window, 1)
 		flock.verbosity.vision = true
 		flock.verbosity.v1 = true
 		flock.verbosity.decision = true
@@ -60,14 +60,14 @@
 			let y = canvas.height / 2
 			const d = 50
 			testFlock.addBoid(x, y)
-			testFlock.addBoid(x - d, y - d) // top left
-			testFlock.addBoid(x, y - d) // top
-			testFlock.addBoid(x + d, y - d) // top right
-			testFlock.addBoid(x - d, y) // left
-			testFlock.addBoid(x + d, y) // right
-			testFlock.addBoid(x - d, y + d) // bottom left
-			testFlock.addBoid(x, y + d) // bottom
-			testFlock.addBoid(x + d, y + d) // bottom right
+			testFlock.addBoid(x - d, y - d, Math.PI) // top left
+			testFlock.addBoid(x, y - d, Math.PI) // top
+			testFlock.addBoid(x + d, y - d, Math.PI) // top right
+			testFlock.addBoid(x - d, y, Math.PI) // left
+			testFlock.addBoid(x + d, y, Math.PI) // right
+			testFlock.addBoid(x - d, y + d, Math.PI + 1) // bottom left
+			testFlock.addBoid(x, y + d, Math.PI + 1) // bottom
+			testFlock.addBoid(x + d, y + d, Math.PI) // bottom right
 			
 			testFlock.step()
 		}
