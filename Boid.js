@@ -182,33 +182,6 @@ class Boid {
 		return this.vision.neighboringBoids
 	}
 
-	/*
-	    Decision Methods:
-	    This is where the boid chooses which direction to go. This will be done in four functions:
-	    - cohesion
-	        - Determine the average position of all visible flockmates
-	    - Alignment
-	        - Determine the average direction of all visible flockmates
-	    - Separation
-	        - Don't overlap with nearby boids
-	        - The hardest to implement
-	    - Don't crash principle
-	        - Do not touch the edge of the display
-	        - Do not touch obstacles on the path
-	    
-	    I would normally implement these as four separate functions, but then every decision
-	    for every boid on the screen would have O(m * n^3) efficiency where n is the number of
-	    visible boids and m is the number of visible obstacles, including the edges of the display.
-
-	    As such, I have to implement this entire decision making process inside one function to
-		keep the efficiency in O(n*m), which is important once I reach a large number of boids.
-		
-		PROBLEM NOTES:
-		- The biggest problem with these angle averaging methods is that although 0 and 2PI are
-			supposed to be treated the same in the averaging, they are in fact radically different.
-		- Watch my negatives!
-	*/
-
 	/**
 	 * Determine what direction the boid should move based on what information the boid can 'see'. The decision is made
 	 * based on the following criteria:
@@ -224,6 +197,8 @@ class Boid {
 		if (boids != undefined) {
 			this.detectBoids(boids)
 		}
+		// for floating point comparison
+		const alpha = 0.001
 		if (this.vision.neighboringBoids.length == 0) {
 			// we don't have other boids, check for other obstacles
 			if (this.vision.obstacles.length > 0) {
@@ -235,10 +210,11 @@ class Boid {
 						this.vision.obstacles[i].y)
 					// Find the angle away from all obstacles
 					const obsAngle = this.angleTo(this.vision.obstacles[i].x, this.vision.obstacles[i].y)
-					let preAdd = this.decision.avoidance
-					this.decision.avoidance += (obsAngle < Math.PI) ? obsAngle + Math.PI : obsAngle - Math.PI
-					if (!Math.abs(preAdd) < 0.001) { // floating point equivalence
+					if (Math.abs(this.decision.avoidance) > alpha) { // floating point equivalence
+						this.decision.avoidance += (obsAngle < Math.PI) ? obsAngle + Math.PI : obsAngle - Math.PI
 						this.decision.avoidance /= 2
+					} else {
+						this.decision.avoidance += (obsAngle < Math.PI) ? obsAngle + Math.PI : obsAngle - Math.PI
 					}
 				}
 				this.appearance.boidColor = 'red'
@@ -264,27 +240,37 @@ class Boid {
 		this.decision.alignment = 0
 		this.decision.separation = 0
 		this.decision.avoidance = 0
-		let closestBoid = this.vision.radius + 1 // guarentees at least one visible boid will be shortest
 		let closestObstacle = this.vision.radius + 1
+		let separationTriggered = false
 		for (let i = 0; i < this.vision.neighboringBoids.length; i++) {
 			// Get the aggregate sum of coordinates and direction for averages
 			this.decision.cohesionX += this.vision.neighboringBoids[i].position.x
 			this.decision.cohesionY += this.vision.neighboringBoids[i].position.y
-			this.decision.alignment += this.vision.neighboringBoids[i].direction
+			// Determine how this boid affects the alignment rule
+			const neighborDirection = this.distanceBetweenAngles(0, this.vision.neighboringBoids[i].direction)
+			if (Math.abs(this.decision.alignment) > alpha) {
+				this.decision.alignment += neighborDirection
+				this.decision.alignment /= 2
+			} else {
+				this.decision.alignment += neighborDirection
+			}
+
 			// calculate the distance between this and that boid
 			let distance = this.distanceTo(this.vision.neighboringBoids[i].position.x,
 				this.vision.neighboringBoids[i].position.y)
-			// figure out how close the closest boid is (for a weighted average)
-			if (distance < closestBoid) {
-				closestBoid = distance
-			}
+			
 			// determine separation behavior "go in the opposite direction of all the boids"
-			let preAdd = this.decision.separation
-			const boidAngle = this.angleTo(this.vision.neighboringBoids[i].position.x,
-				this.vision.neighboringBoids[i].position.y)
-			this.decision.separation += (boidAngle < Math.PI) ? boidAngle + Math.PI : boidAngle - Math.PI
-			if (!Math.abs(preAdd) < 0.001) {
-				this.decision.separation /=2
+			if (distance < this.appearance.boidSize * 2) {
+				separationTriggered = true
+				let preAdd = this.decision.separation
+				const boidAngle = this.angleTo(this.vision.neighboringBoids[i].position.x,
+					this.vision.neighboringBoids[i].position.y)
+				if (Math.abs(this.decision.separation) < alpha) {
+					this.decision.separation += (boidAngle < Math.PI) ? boidAngle + Math.PI : boidAngle - Math.PI
+					this.decision.separation /= 2
+				} else {
+					this.decision.separation += (boidAngle < Math.PI) ? boidAngle + Math.PI : boidAngle - Math.PI
+				}
 			}
 		}
 		// Get the X and Y coordinates of the cohesion point
@@ -292,7 +278,6 @@ class Boid {
 		this.decision.cohesionY /= this.vision.neighboringBoids.length
 		// Get the angle to the cohesion point
 		this.decision.cohesion = this.angleTo(this.decision.cohesionX, this.decision.cohesionY)
-		this.decision.alignment /= this.vision.neighboringBoids.length
 		// Determine obstacle avoidance behavior
 		for (let i = 0; i < this.vision.obstacles.length; i++) {
 			let distance = this.distanceTo(this.vision.obstacles[i].x,
@@ -306,29 +291,39 @@ class Boid {
 			const obsAngle = this.angleTo(this.vision.obstacles[i].x, this.vision.obstacles[i].y)
 			let preAdd = this.decision.avoidance
 			this.decision.avoidance += (obsAngle < Math.PI) ? obsAngle + Math.PI : obsAngle - Math.PI
-			if (!Math.abs(preAdd) < 0.001) { // floating point equivalence
+			if (!Math.abs(preAdd) < alpha) { // floating point equivalence
 				this.decision.avoidance /= 2
 			}
 		}
 
+		// Apply Constraints to the range of each factor
+		while (this.decision.separation <= -Math.PI) { this.decision.separation += 2 * Math.PI }
+		while (this.decision.separation > Math.PI) { this.decision.separation -= 2 * Math.PI }
+		while (this.decision.cohesion <= -Math.PI) { this.decision.cohesion += 2 * Math.PI }
+		while (this.decision.cohesion > Math.PI) { this.decision.cohesion -= 2 * Math.PI }
+		while (this.decision.alignment <= -Math.PI) { this.decision.alignment += 2 * Math.PI }
+		while (this.decision.alignment > Math.PI) { this.decision.alignment -= 2 * Math.PI }
+		while (this.decision.avoidance <= -Math.PI) { this.decision.avoidance += 2 * Math.PI }
+		while (this.decision.avoidance > Math.PI) { this.decision.avoidance -= 2 * Math.PI }
+
 		// Make the final decision and change the boid color to reflect that decision
+		this.decision.final = this.direction
+		if (separationTriggered) {
+			// make the approach start with separation, then adjust for alignment, then adjust for cohesion.
+			this.appearance.boidColor = 'orange'
+			this.decision.final -= this.distanceBetweenAngles(this.decision.final, this.decision.separation) * 0.15
+			this.decision.final -= this.distanceBetweenAngles(this.decision.final, this.decision.alignment) * 0.125
+			this.decision.final -= this.distanceBetweenAngles(this.decision.final, this.decision.separation) * 0.05
+		} else {
+			// separation rule does not apply, so don't use it
+			this.appearance.boidColor = '#6699ff'
+			this.decision.final -= this.distanceBetweenAngles(this.decision.final, this.decision.alignment) * 0.125
+			this.decision.final -= this.distanceBetweenAngles(this.decision.final, this.decision.separation) * 0.05
+		}
 		if (this.vision.obstacles.length > 0 && closestObstacle < this.vision.radius / 2) {
 			// the closest obstacle is too close, don't crash.
-			this.decision.final = this.decision.avoidance
 			this.appearance.boidColor = 'red'
-		} else {
-			// this.decision.final = this.decision.alignment
-			if (closestBoid < this.appearance.boidSize * 2) {
-				// use separation rule to keep a distance
-				let adjustment = this.distanceBetweenAngles(this.decision.alignment, this.decision.separation) * 0.6
-				this.appearance.boidColor = 'orange'
-				this.decision.final = this.decision.alignment - adjustment
-			} else {
-				// use cohesion rule to get a little closer to our friends
-				let adjustment = this.distanceBetweenAngles(this.decision.alignment, this.decision.cohesion) * 0.4
-				this.appearance.boidColor = 'yellow'
-				this.decision.final = this.decision.alignment - adjustment
-			}
+			this.decision.final -= this.distanceBetweenAngles(this.decision.final, this.decision.avoidance) * 0.7
 		}
 
 		// TODO: Add some noise to the final decision

@@ -19,13 +19,14 @@
 	<canvas id="boids" style="width: 95%"></canvas>
 	<button onClick="pause()">Pause</button>
 	<button onClick="play()">Play</button>
+	<button onClick="addBoid()">Add a Boid</button>
 	<script src="Boid.js"></script>
 	<script src="Flock.js"></script>
 	<script>
 		let canvas = document.getElementById('boids')
 		let context = canvas.getContext('2d')
 
-		let flock = new Flock(canvas, window, 100)
+		let flock = new Flock(canvas, window, 15)
 		flock.verbosity.vision = true
 		flock.verbosity.v1 = true
 		flock.verbosity.decision = true
@@ -37,6 +38,10 @@
 			raf = window.requestAnimationFrame(animate)
 		}
 
+		function addBoid() {
+			flock.addRandomBoid()
+		}
+
 		function play() {
 			raf = window.requestAnimationFrame(animate)
 		}
@@ -45,7 +50,31 @@
 			window.cancelAnimationFrame(raf)
 		}
 
-		play()
+		function testRules() {
+			let testFlock = new Flock(canvas, window, 1)
+			testFlock.verbosity.vision = true
+			testFlock.verbosity.decision = true
+			testFlock.boids = []
+
+			let x = canvas.width / 2
+			let y = canvas.height / 2
+			const d = 50
+			testFlock.addBoid(x, y)
+			testFlock.addBoid(x - d, y - d) // top left
+			testFlock.addBoid(x, y - d) // top
+			testFlock.addBoid(x + d, y - d) // top right
+			testFlock.addBoid(x - d, y) // left
+			testFlock.addBoid(x + d, y) // right
+			testFlock.addBoid(x - d, y + d) // bottom left
+			testFlock.addBoid(x, y + d) // bottom
+			testFlock.addBoid(x + d, y + d) // bottom right
+			
+			testFlock.step()
+		}
+
+		testRules()
+
+		// play()
 
 	</script>
 </body>
