@@ -231,10 +231,12 @@ class Boid {
 						this.decision.avoidance /= 2
 					}
 				}
+				this.appearance.boidColor = 'red'
 				this.decision.final = this.decision.avoidance
 			} else {
 				this.decision.avoidance = undefined
 				// We don't see anything, maintain course
+				this.appearance.boidColor = '#6699ff'
 				this.decision.final = this.direction
 			}
 			// show that we didn't factor other rules in this decision
@@ -300,18 +302,22 @@ class Boid {
 			}
 		}
 
+		// Make the final decision and change the boid color to reflect that decision
 		if (this.vision.obstacles.length > 0 && closestObstacle < this.vision.radius / 2) {
 			// the closest obstacle is too close, don't crash.
 			this.decision.final = this.decision.avoidance
+			this.appearance.boidColor = 'red'
 		} else {
 			// this.decision.final = this.decision.alignment
 			if (closestBoid < this.vision.radius / 3.5) {
 				// use separation rule to keep a distance
-				let adjustment = this.distanceBetweenAngles(this.decision.alignment, this.decision.separation) * 0.1
+				let adjustment = this.distanceBetweenAngles(this.decision.alignment, this.decision.separation) * 0.2
+				this.appearance.boidColor = 'orange'
 				this.decision.final = this.decision.alignment + adjustment
 			} else {
 				// use cohesion rule to get a little closer to our friends
-				let adjustment = this.distanceBetweenAngles(this.decision.alignment, this.decision.cohesion) * 0.1
+				let adjustment = this.distanceBetweenAngles(this.decision.alignment, this.decision.cohesion) * 0.4
+				this.appearance.boidColor = 'yellow'
 				this.decision.final = this.decision.alignment + adjustment
 			}
 		}
@@ -337,6 +343,7 @@ class Boid {
 		ctx.rotate(this.direction)
 
 		// draw the boid as a triangle with a notch to indicate the front
+		ctx.fillStyle = this.appearance.boidColor
 		ctx.beginPath()
 		ctx.moveTo(this.appearance.boidSize / 2, 0)
 		ctx.lineTo(this.appearance.boidSize / 2, 0)
