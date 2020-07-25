@@ -34,13 +34,11 @@ class Boid {
 
 		// Decision information for drawing the decision process
 		this.decision = {
-			cohesionX: undefined,
-			cohesionY: undefined,
-			cohesion: undefined,
-			alignment: undefined,
-			separation: undefined,
-			avoidance: undefined,
-			final: this.startDirection
+			cohesion: {x: undefined, y: undefined},
+			alignment: {x: undefined, y: undefined},
+			separation: {x: undefined, y: undefined},
+			avoidance: {x: undefined, y: undefined},
+			final: {x: 3 * this.appearance.boidSize * Math.cos(this.direction), y: 3 * this.appearance.boidSize * Math.sin(this.direction)},
 		}
 	}
 
@@ -117,6 +115,7 @@ class Boid {
 	/**
 	 * Given the coordinates of all obstacles on the canvas, plus the dimensions of the canvas,
 	 * detect all obstacles within the field of view of this boid.
+	 * Will also make the avoidance decision.
 	 * @param {Array<Object>} obstacles A series of coordinates in the format {x: number, y: number}
 	 * @param {number} width the width of the canvas
 	 * @param {number} height the height of the canvas
@@ -125,61 +124,81 @@ class Boid {
 	detectObstacles(obstacles, width, height) {
 		// clear the list and start from scratch
 		this.vision.obstacles = []
-		const fov = Math.PI - this.vision.angle
+		// while we are here, determine the safest point away from those obstacles
+		let safety = [];
+		const danger = 2; // the greater the danger, the more weight "don't crash" will have
+
 		for (let i = 0; i < obstacles.length; i++) {
 			if (this.canSee(obstacles[i].x, obstacles[i].y)) {
 				this.vision.obstacles.push({
 					x: obstacles[i].x,
 					y: obstacles[i].y
 				})
+				// the safest point is the opposite direction, and a little further
+				safety.push({
+					x: this.position.x + (this.position.x - obstacles[i].x) * danger,
+					y: this.position.y + (this.position.y - obstacles[i].y) * danger
+				})
 			}
 		}
-		// check for the edge of the display
-		if (this.canSee(0, this.position.y)) {
+		// check for the edges of the display
+		if (this.canSee(0, this.position.y)) { // left edge
 			this.vision.obstacles.push({
 				x: 0,
 				y: this.position.y
 			})
+			safety.push({
+				x: this.position.x * danger,
+				y: this.position.y
+			})
 		}
-		if (this.canSee(width, this.position.y)) {
+		if (this.canSee(width, this.position.y)) { // right edge
 			this.vision.obstacles.push({
 				x: width,
 				y: this.position.y
 			})
+			safety.push({
+				x: this.position.x - (width - this.position.x) * danger,
+				y: this.position.y
+			})
 		}
-		if (this.canSee(this.position.x, 0)) {
+		if (this.canSee(this.position.x, 0)) { // top edge
 			this.vision.obstacles.push({
 				x: this.position.x,
 				y: 0
 			})
+			safety.push({
+				x: this.position.x,
+				y: this.position.y * danger
+			})
 		}
-		if (this.canSee(this.position.x, height)) {
+		if (this.canSee(this.position.x, height)) { // bottom edge
 			this.vision.obstacles.push({
 				x: this.position.x,
 				y: height
 			})
+			safety.push({
+				x: this.position.x,
+				y: this.position.y - (height - this.position.y) * danger
+			})
 		}
-		return this.vision.obstacles
-	}
-
-	/**
-	 * Given an array of boids, determine which boids this boid can see
-	 * with its current vision.
-	 * @param {Array<Boid>} boids An array of boid objects
-	 * @returns An array of all boids which this boid can see.
-	 */
-	detectBoids(boids) {
-		// clear the current list of boids
-		this.vision.neighboringBoids = []
-
-		for (let i = 0; i < boids.length; i++) {
-			if (boids[i] == this) {
-				continue // Skip the math and don't compare this to itself
-			} else if (this.canSee(boids[i].position.x, boids[i].position.y)) {
-				this.vision.neighboringBoids.push(boids[i])
+		if (safety.length > 0) {
+			// determine the safest point (average of points in safety)
+			this.decision.avoidance = {x: 0, y: 0}
+			for(let i = 0; i < safety.length; i++) {
+				this.decision.avoidance.x += safety[i].x;
+				this.decision.avoidance.y += safety[i].y;
+			}
+			this.decision.avoidance.x /= safety.length;
+			this.decision.avoidance.y /= safety.length;
+		} else {
+			// there are no obstacles, reset avoidance behavior
+			this.decision.avoidance = {
+				x: undefined,
+				y: undefined
 			}
 		}
-		return this.vision.neighboringBoids
+		return this.vision.obstacles
 	}
 
 	/**
@@ -189,147 +208,100 @@ class Boid {
 	 * Alignment: The Average direction of all visible flockmates
 	 * Separation: Do not overcrowd the flock
 	 * Don't Crash: Avoid obstacles and the edge of the display (To be implemented later - I need obstacle vision)
-	 * @param {Array<Boid>} boids Optional. An array of boid objects which could be flockmates to be factored into the decision.
-	 * 								Required if this.detectBoids() has not been run.
-	 * @returns {number} a number indicating the angle (in radians) the boid ought to go based on its decision making principles.
+	 * @param {Array<Boid>} boids An array of boid objects which could be flockmates to be factored into the decision.
+	 * @returns {object} a number indicating the angle (in radians) the boid ought to go based on its decision making principles.
 	 */
 	decideDirection(boids) {
-		if (boids != undefined) {
-			this.detectBoids(boids)
-		}
-		// for floating point comparison
-		const alpha = 0.001
-		if (this.vision.neighboringBoids.length == 0) {
-			// we don't have other boids, check for other obstacles
-			if (this.vision.obstacles.length > 0) {
-				// our decision is based entirely on obstacle avoidance
-				this.decision.avoidance = 0
-				// Determine obstacle avoidance behavior
-				for (let i = 0; i < this.vision.obstacles.length; i++) {
-					let distance = this.distanceTo(this.vision.obstacles[i].x,
-						this.vision.obstacles[i].y)
-					// Find the angle away from all obstacles
-					const obsAngle = this.angleTo(this.vision.obstacles[i].x, this.vision.obstacles[i].y)
-					if (Math.abs(this.decision.avoidance) > alpha) { // floating point equivalence
-						this.decision.avoidance += (obsAngle < Math.PI) ? obsAngle + Math.PI : obsAngle - Math.PI
-						this.decision.avoidance /= 2
-					} else {
-						this.decision.avoidance += (obsAngle < Math.PI) ? obsAngle + Math.PI : obsAngle - Math.PI
-					}
-				}
-				this.appearance.boidColor = 'red'
+		// reset vision on neighboring boids
+		this.vision.neighboringBoids = []
+		// START WITH SIMPLE BASE CASES
+		if (boids.length <= 1 && this.vision.obstacles.length <= 0) {
+			// We see nothing (the boids array always contains at least this boid), so maintain course
+			this.decision.final = {
+				x: this.position.x + this.appearance.boidSize * Math.cos(this.direction),
+				y: this.position.y + this.appearance.boidSize * Math.sin(this.direction)
+			}
+		} else if (boids.length <= 1 && this.vision.obstacles.length > 0) {
+			// we have no other boids, but we have obstacles to deal with
+			// sanity check: make sure that avoidance isn't undefined
+			if (this.decision.avoidance.x && this.decision.avoidance.y) {
 				this.decision.final = this.decision.avoidance
 			} else {
-				this.decision.avoidance = undefined
-				// We don't see anything, maintain course
-				this.appearance.boidColor = '#6699ff'
-				this.decision.final = this.direction
-			}
-			// show that we didn't factor other rules in this decision
-			this.decision.cohesionX = undefined
-			this.decision.cohesionY = undefined
-			this.decision.cohesion = undefined
-			this.decision.alignment = undefined
-			this.decision.separation = undefined
-			// Add some noise to the final decision
-			if (Math.random() < 0.1) { this.decision.final += (Math.random() - 0.5) * Math.PI / 20 }
-			return this.decision.final
-		}
-		//setup this.decision struct
-		this.decision.cohesionX = 0
-		this.decision.cohesionY = 0
-		this.decision.cohesion = 0
-		this.decision.alignment = 0
-		this.decision.separation = 0
-		this.decision.avoidance = 0
-		let closestObstacle = this.vision.radius + 1
-		let separationTriggered = false
-		for (let i = 0; i < this.vision.neighboringBoids.length; i++) {
-			// Get the aggregate sum of coordinates and direction for averages
-			this.decision.cohesionX += this.vision.neighboringBoids[i].position.x
-			this.decision.cohesionY += this.vision.neighboringBoids[i].position.y
-			// Determine how this boid affects the alignment rule
-			const neighborDirection = this.distanceBetweenAngles(this.decision.alignment, this.vision.neighboringBoids[i].direction)
-			if (Math.abs(this.decision.alignment) > alpha) {
-				this.decision.alignment -= neighborDirection / 2
-			} else {
-				this.decision.alignment = neighborDirection
-			}
-
-			// calculate the distance between this and that boid
-			let distance = this.distanceTo(this.vision.neighboringBoids[i].position.x,
-				this.vision.neighboringBoids[i].position.y)
-			
-			// determine separation behavior "go in the opposite direction of all the boids"
-			if (distance < this.appearance.boidSize * 2) {
-				separationTriggered = true
-				const boidAngle = this.angleTo(this.vision.neighboringBoids[i].position.x,
-					this.vision.neighboringBoids[i].position.y)
-				if (Math.abs(this.decision.separation) < alpha) {
-					this.decision.separation += (boidAngle < Math.PI) ? boidAngle + Math.PI : boidAngle - Math.PI
-					this.decision.separation /= 2
-				} else {
-					this.decision.separation += (boidAngle < Math.PI) ? boidAngle + Math.PI : boidAngle - Math.PI
+				this.decision.final = {
+					x: this.position.x + this.appearance.boidSize * Math.cos(this.direction),
+					y: this.position.y + this.appearance.boidSize * Math.sin(this.direction)
 				}
 			}
-		}
-		// Get the X and Y coordinates of the cohesion point
-		this.decision.cohesionX /= this.vision.neighboringBoids.length
-		this.decision.cohesionY /= this.vision.neighboringBoids.length
-		// Get the angle to the cohesion point
-		this.decision.cohesion = this.angleTo(this.decision.cohesionX, this.decision.cohesionY)
-		// Determine obstacle avoidance behavior
-		for (let i = 0; i < this.vision.obstacles.length; i++) {
-			let distance = this.distanceTo(this.vision.obstacles[i].x,
-				this.vision.obstacles[i].y)
-			// figure out how close the closest obstacle is (for a weighted average)
-			if (distance < closestObstacle) {
-				closestObstacle = distance
+		} else { // GENERAL CASE
+			// We have at least one other boid to check, but we don't know about other obstacles for sure yet
+			//setup this.decision struct
+			this.decision.cohesion = {x: 0, y: 0}
+			this.decision.alignment = {x: 0, y: 0}
+			this.decision.separation = {x: 0, y: 0}
+			// check if we can "see" the other boids, and collect data on visible ones
+			for (let i = 0; i < boids.length; i++) {
+				if (boids[i] != this && this.canSee(boids[i].position.x, boids[i].position.y)) {
+					this.vision.neighboringBoids.push(boids[i]);
+					// Get the aggregate sum of coordinates of neighboring boids
+					this.decision.cohesion.x += boids[i].position.x
+					this.decision.cohesion.y += boids[i].position.y
+					// choose a point 2 "boid lengths" along the ray cast by the other boids' direction for aligment
+					this.decision.alignment.x += 2 * boids[i].appearance.boidSize * Math.cos(boids[i].direction) + boids[i].position.x
+					this.decision.alignment.y += 2 * boids[i].appearance.boidSize * Math.cos(boids[i].direction) + boids[i].position.y
+				}
 			}
-			// treat obstacle behavior like separation behavior
-			const obsAngle = this.angleTo(this.vision.obstacles[i].x, this.vision.obstacles[i].y)
-			if (Math.abs(this.decision.avoidance) > alpha) {
-				this.decision.avoidance += (obsAngle < Math.PI) ? obsAngle + Math.PI : obsAngle - Math.PI
-				this.decision.avoidance /= 2
+			// check if we can "see" other boids and make decisions based on that
+			if (this.vision.neighboringBoids.length > 0) {
+				// averaging vectors time
+				this.decision.cohesion.x /= this.vision.neighboringBoids.length
+				this.decision.cohesion.y /= this.vision.neighboringBoids.length
+				this.decision.alignment.x /= this.vision.neighboringBoids.length
+				this.decision.alignment.y /= this.vision.neighboringBoids.length
+				// TODO: revisit separation rules here
+
+				// put all the rules together here
+				if (this.vision.obstacles.length > 0) {
+					// factor in avoidance
+					this.decision.final.x = (this.decision.cohesion.x + this.decision.alignment.x + this.decision.separation.x + this.decision.avoidance) / 4
+					this.decision.final.y = (this.decision.cohesion.y + this.decision.alignment.y + this.decision.separation.y + this.decision.avoidance) / 4
+				} else {
+					// don't factor in avoidance
+					this.decision.avoidance = {x: undefined, y: undefined}
+					this.decision.final.x = (this.decision.cohesion.x + this.decision.alignment.x + this.decision.separation.x) / 3
+					this.decision.final.y = (this.decision.cohesion.y + this.decision.alignment.y + this.decision.separation.y) / 3
+				}
 			} else {
-				this.decision.avoidance += (obsAngle < Math.PI) ? obsAngle + Math.PI : obsAngle - Math.PI
+				// reset the decision struct to show we didn't find anyhing
+				this.decision.cohesion = {x: undefined, y: undefined}
+				this.decision.alignment = {x: undefined, y: undefined}
+				this.decision.separation = {x: undefined, y: undefined}
+				// we don't have other boids, check for other obstacles
+				if (this.vision.obstacles.length > 0) {
+					// our decision is based entirely on obstacle avoidance
+					this.decision.final = this.decision.avoidance
+				} else {
+					// We don't see anything, maintain course
+					this.decision.final = {
+						x: this.position.x + this.appearance.boidSize * Math.cos(this.direction),
+						y: this.position.y + this.appearance.boidSize * Math.sin(this.direction)
+					}
+				}
+			}
+		
+			// put all the rules together
+			this.decision.final.x = (this.decision.cohesion.x + this.decision.alignment.x + this.decision.separation.x) / 3
+			this.decision.final.y = (this.decision.cohesion.y + this.decision.alignment.y + this.decision.separation.y) / 3
+			if (this.vision.obstacles.length > 0) { // we need to factor in avoidance
+				this.decision.final.x = (this.decision.final.x + this.decision.avoidance.x) / 2
+				this.decision.final.y = (this.decision.final.y + this.decision.avoidance.y) / 2
 			}
 		}
-
-		// Apply Constraints to the range of each rule
-		while (this.decision.separation <= -Math.PI) { this.decision.separation += 2 * Math.PI }
-		while (this.decision.separation > Math.PI) { this.decision.separation -= 2 * Math.PI }
-		while (this.decision.cohesion <= -Math.PI) { this.decision.cohesion += 2 * Math.PI }
-		while (this.decision.cohesion > Math.PI) { this.decision.cohesion -= 2 * Math.PI }
-		while (this.decision.alignment <= -Math.PI) { this.decision.alignment += 2 * Math.PI }
-		while (this.decision.alignment > Math.PI) { this.decision.alignment -= 2 * Math.PI }
-		while (this.decision.avoidance <= -Math.PI) { this.decision.avoidance += 2 * Math.PI }
-		while (this.decision.avoidance > Math.PI) { this.decision.avoidance -= 2 * Math.PI }
-
-		// Make the final decision and change the boid color to reflect that decision
-		this.decision.final = this.direction
-		if (separationTriggered) {
-			// make the approach start with separation, then adjust for alignment, then adjust for cohesion.
-			this.appearance.boidColor = 'orange'
-			this.decision.final -= this.distanceBetweenAngles(this.decision.final, this.decision.separation) * 0.15
-			this.decision.final -= this.distanceBetweenAngles(this.decision.final, this.decision.alignment) * 0.125
-			this.decision.final -= this.distanceBetweenAngles(this.decision.final, this.decision.separation) * 0.05
-		} else {
-			// separation rule does not apply, so don't use it
-			this.appearance.boidColor = '#6699ff'
-			this.decision.final -= this.distanceBetweenAngles(this.decision.final, this.decision.alignment) * 0.125
-			this.decision.final -= this.distanceBetweenAngles(this.decision.final, this.decision.separation) * 0.05
-		}
-		if (this.vision.obstacles.length > 0 && closestObstacle < this.vision.radius / 2) {
-			// the closest obstacle is too close, don't crash.
-			this.appearance.boidColor = 'red'
-			this.decision.final -= this.distanceBetweenAngles(this.decision.final, this.decision.avoidance) * 0.7
-		}
-
 		// Add some noise to the final decision
-		if (Math.random() < 0.1) { this.decision.final += (Math.random() - 0.5) * Math.PI / 30 }
-
-		return this.decision.final
+		if (Math.random() < 0.1) { 
+			this.decision.final.x += (Math.random() * 10) - 5
+			this.decision.final.y += (Math.random() * 10) - 5
+		}
+		return this.angleTo(this.decision.final.x, this.decision.final.y)
 	}
 
 
@@ -416,7 +388,7 @@ class Boid {
 		if (this.decision.cohesionX != undefined && this.decision.cohesionY != undefined) {
 			ctx.beginPath()
 			ctx.fillStyle = 'yellow'
-			ctx.arc(this.decision.cohesionX, this.decision.cohesionY,
+			ctx.arc(this.decision.cohesion.x, this.decision.cohesion.y,
 				this.appearance.boidSize / 4, 0, 2 * Math.PI)
 			ctx.fill()
 		}
@@ -436,54 +408,59 @@ class Boid {
 		ctx.translate(this.position.x, this.position.y)
 		ctx.lineWidth = this.appearance.boidSize / 8
 		// Draw Cohesion rule
-		if (this.decision.cohesion != undefined) {
+		if (this.decision.cohesion.x != 0) {
+			const cohesion = this.angleTo(this.decision.cohesion.x, this.decision.cohesion.y)
 			ctx.beginPath()
 			ctx.strokeStyle = 'yellow'
 			ctx.moveTo(0, 0)
 			ctx.lineTo(
-				this.appearance.boidSize * Math.cos(this.decision.cohesion),
-				this.appearance.boidSize * Math.sin(this.decision.cohesion)
+				this.appearance.boidSize * Math.cos(cohesion),
+				this.appearance.boidSize * Math.sin(cohesion)
 			)
 			ctx.stroke()
 		}
 		// Draw alignment rule
-		if (this.decision.alignment != undefined) {
+		if (this.decision.alignment.x != 0) {
+			const alignment = this.angleTo(this.decision.alignment.x, this.decision.alignment.y)
 			ctx.beginPath()
 			ctx.strokeStyle = 'green'
 			ctx.moveTo(0, 0)
 			ctx.lineTo(
-				this.appearance.boidSize * Math.cos(this.decision.alignment),
-				this.appearance.boidSize * Math.sin(this.decision.alignment))
+				this.appearance.boidSize * Math.cos(alignment),
+				this.appearance.boidSize * Math.sin(alignment))
 			ctx.stroke()
 		}
 		// Draw separation rule
-		if (this.decision.separation) {
+		if (this.decision.separation.x != 0) {
+			const separation = this.angleTo(this.decision.separation.x, this.decision.separation.y)
 			ctx.beginPath()
 			ctx.strokeStyle = 'orange'
 			ctx.moveTo(0, 0)
 			ctx.lineTo(
-				this.appearance.boidSize * Math.cos(this.decision.separation),
-				this.appearance.boidSize * Math.sin(this.decision.separation))
+				this.appearance.boidSize * Math.cos(separation),
+				this.appearance.boidSize * Math.sin(separation))
 			ctx.stroke()
 		}
 		// Draw "Don't crash" rule
-		if (this.decision.avoidance) {
+		if (this.decision.avoidance.x != 0) {
+			const avoidance = this.angleTo(this.decision.avoidance.x, this.decision.avoidance.y)
 			ctx.beginPath()
 			ctx.strokeStyle = 'red'
 			ctx.moveTo(0, 0)
 			ctx.lineTo(
-				this.appearance.boidSize * Math.cos(this.decision.avoidance),
-				this.appearance.boidSize * Math.sin(this.decision.avoidance))
+				this.appearance.boidSize * Math.cos(avoidance),
+				this.appearance.boidSize * Math.sin(avoidance))
 			ctx.stroke()
 		}
 		// Draw final decision
-		if (this.decision.final != undefined) {
+		if (this.decision.final.x != 0) {
+			const final = this.angleTo(this.decision.final.x, this.decision.final.y)
 			ctx.beginPath()
 			ctx.strokeStyle = 'blue'
 			ctx.moveTo(0, 0)
 			ctx.lineTo(
-				this.appearance.boidSize * Math.cos(this.decision.final),
-				this.appearance.boidSize * Math.sin(this.decision.final))
+				this.appearance.boidSize * Math.cos(final),
+				this.appearance.boidSize * Math.sin(final))
 			ctx.stroke()
 		}
 		ctx.restore() // undo any changes to state
