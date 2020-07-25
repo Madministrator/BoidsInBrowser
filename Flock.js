@@ -25,26 +25,6 @@ class Flock {
 		for (let i = 0; i < size; i++) {
 			this.addRandomBoid()
 		}
-		// Test Corners
-		// this.boids.push(new Boid(
-		// 	80, 80, 5 * Math.PI / 4
-		// ))
-		// this.boids.push(new Boid(
-		// 	this.canvas.width - 80, 80, 7 * Math.PI / 4
-		// ))
-		// this.boids.push(new Boid(
-		// 	80, this.canvas.height - 80, 3 * Math.PI / 4
-		// ))
-		// this.boids.push(new Boid(
-		// 	this.canvas.width - 80, this.canvas.height - 80, Math.PI / 4
-		// ))
-
-		this.verbosity = {
-			vision: false,
-			v1: true,
-			decision: false,
-			d1: true
-		}
 	}
 
 	/**
@@ -62,27 +42,8 @@ class Flock {
 		this.boids.push(new Boid(
 				Math.random() * this.canvas.width,
 				Math.random() * this.canvas.height,
-				-(Math.random() * 2 * Math.PI - Math.PI), // range between -Math.PI (exclusive) and Math.PI (inclusive)
 				this.canvas.height * 0.03
 		))
-	}
-
-	/**
-	 * Adds a boid at the specified coordinates
-	 * @param {number} x the x coordinate of the new boid
-	 * @param {number} y the y coordinate of the new boid
-	 * @param {number} theta the initial direction of the boid, in radians, bound between -Math.PI and Math.PI
-	 */
-	addBoid(x, y, theta) {
-		// apply constraints
-		if (x < 0) { x = 0 }
-		if (x > this.canvas.width) { x = this.canvas.width }
-		if (y < 0) { y = 0 }
-		if (y > this.canvas.width) { y = this.canvas.height }
-		if (theta == undefined) { theta = -(Math.random() * 2 * Math.PI - Math.PI) }
-		while (theta <= -Math.PI) { theta += 2 * Math.PI }
-		while (theta >= Math.PI) { theta -= 2 * Math.PI }
-		this.boids.push(new Boid(x, y, theta, this.canvas.height * 0.03))
 	}
 
 	/**
@@ -90,38 +51,13 @@ class Flock {
 	 * and position to both go in the requested direction, and animate as smooth as possible.
 	 */
 	moveFlock() {
-		const boidSpeed = 1.5 // move each boid 3 pixels per step
-		const maxTurn = Math.PI / 30 // turn at most this many radians, makes turns smoother and slower
-		let terminate = []
-		for (let i = 0; i < this.size(); i++) {
-			// ask each boid which way it wants to go
-			this.boids[i].detectObstacles([], this.canvas.clientWidth, this.canvas.clientHeight)
-			let desiredDirection = this.boids[i].decideDirection(this.boids)
-			// turn the boid in the desired direction
-			// calculate the smallest angle between the rays cast by the desired angle and the direction
-			// preserving the sign of the angle
-			let turnAngle = Math.atan2(Math.sin(desiredDirection - this.boids[i].direction), Math.cos(desiredDirection - this.boids[i].direction))
-			if (Math.abs(turnAngle) > maxTurn) { // enforce turning constraints for smoother animations
-				turnAngle = (turnAngle > 0) ? maxTurn : - maxTurn
-			}
-			// apply the turn
-			this.boids[i].direction += turnAngle
-			// move the boid forward in the new direction
-			this.boids[i].position.x += boidSpeed * Math.cos(this.boids[i].direction)
-			this.boids[i].position.y += boidSpeed * Math.sin(this.boids[i].direction)
-
-			// If the boid has moved out of the screen, kill it to save memory
-			if (this.boids[i].position.x < 0 || this.boids[i].position.y < 0 
-				|| this.boids[i].position.x > this.canvas.clientWidth
-				|| this.boids[i].position.y > this.canvas.clientHeight) { 
-				terminate.push(i) 
-			}
+		// get the boids to update their velocities
+		for(let i = 0; i < this.boids.length; i++){
+			this.boids[i].applyRules(this.boids, this.canvas.width, this.canvas.height)
 		}
-		terminate.reverse()
-		for(let i = 0; i < terminate.length; i++) {
-			this.boids.splice(terminate[i], 1)
-			this.addRandomBoid()
-			console.log("Boid Replaced")
+		// get the boids to update their positions
+		for(let i = 0; i < this.boids.length; i++) {
+			this.boids[i].move()
 		}
 	}
 
@@ -131,29 +67,13 @@ class Flock {
 	drawFlock() {
 		// clear the canvas
 		this.ctx.clearRect(0, 0, this.canvas.clientWidth, this.canvas.clientWidth)
-		// Show boid vision if requested
-		if (this.verbosity.vision) {
-			if (this.verbosity.v1 && this.size() > 0) {
-				this.boids[0].drawVision(this.ctx)
-			} else if (this.size() > 0) {
-				for (let i = 0; i < this.size(); i++) {
-					this.boids[i].drawVision(this.ctx)
-				}
-			}
+		// for now, draw the vision of the first boid
+		if (this.boids.length > 0) {
+			this.drawBoidVision(this.ctx, 0)
 		}
-		// show decision rules if requested
-		if (this.verbosity.decision) {
-			if (this.verbosity.d1 && this.size() > 0) {
-				this.boids[0].drawDecision(this.ctx)
-			} else if (this.size() > 0) {
-				for (let i = 0; i < this.size(); i++) {
-					this.boids[i].drawDecision(this.ctx)
-				}
-			}
-		}
-		// Draw all boids
-		for (let i = 0; i < this.size(); i++) {
-			this.boids[i].drawBoid(this.ctx)
+		// draw each individual boid
+		for (let i = 0; i < this.boids.length; i++) {
+			this.drawBoid(this.ctx, i)
 		}
 	}
 
@@ -163,5 +83,63 @@ class Flock {
 	step() {
 		this.moveFlock()
 		this.drawFlock()
+	}
+
+	/**
+	 * Draws a single boid from the boid array
+	 * @param {CanvasRenderingContext2D} ctx The rendering context of the canvas that we are drawing to.
+	 * @param {number} index The index of the boid from the array of boids
+	 */
+	drawBoid(ctx, index) {
+		const boid = this.boids[index]
+		// save the context state before this function was called so we can modify the context state
+		ctx.save()
+
+		// change the context to be centered and rotated around the boid
+		ctx.translate(boid.position.getX(), boid.position.getY())
+		ctx.rotate(boid.getDirection())
+
+		// draw the boid as a triangle with a notch to indicate the front
+		ctx.fillStyle = 'rgba(102, 153, 255, 1.0)'
+		ctx.beginPath()
+		ctx.moveTo(boid.size / 2, 0)
+		ctx.lineTo(boid.size / 2, 0)
+		ctx.lineTo(-boid.size / 3, -boid.size / 3)
+		ctx.lineTo(-boid.size / 8, 0)
+		ctx.lineTo(-boid.size / 3, boid.size / 3)
+		ctx.lineTo(boid.size / 2, 0)
+		ctx.stroke()
+		ctx.fill()
+
+		// restore the context state to not interfere with other drawing functions
+		ctx.restore()
+	}
+
+	/**
+	 * Draws the visible area of a single boid. Note, You should call drawBoid AFTER calling this
+	 * function to see the boid on top of the vision circle.
+	 * @param {CanvaseRenderingContext2D} ctx The rendering context of the canvas that we are drawing to.
+	 * @param {number} index The index of the boid from the array of boids
+	 */
+	drawBoidVision(ctx, index) {
+		const boid = this.boids[index]
+		// save the context state before this function was called so we can modify the context state
+		ctx.save()
+
+		// move the context to the boid so that I don't have to worry about positioning
+		ctx.translate(boid.position.getX(), boid.position.getY())
+		// rotate so that 0 degrees is directly behind the boid
+		ctx.rotate(boid.getDirection() - Math.PI)
+
+		// Draw the semi-circle of vision
+		ctx.beginPath()
+		ctx.arc(0, 0, boid.vision.radius, boid.vision.angle, 2 * Math.PI - boid.vision.angle, false)
+		ctx.lineTo(0, 0)
+		ctx.fillStyle = 'rgba(0, 0, 0, 0.25)'
+		ctx.fill()
+
+		// undo transformations to draw lines using absolute locations
+		ctx.restore()
+		ctx.save()
 	}
 }

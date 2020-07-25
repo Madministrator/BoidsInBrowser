@@ -26,11 +26,7 @@
 		let canvas = document.getElementById('boids')
 		let context = canvas.getContext('2d')
 
-		let flock = new Flock(canvas, window, 1)
-		flock.verbosity.vision = true
-		flock.verbosity.v1 = true
-		flock.verbosity.decision = true
-		flock.verbosity.d1 = true
+		let flock = new Flock(canvas, window, 10)
 		let raf // for animation
 		
 		function animate() {
@@ -49,30 +45,6 @@
 		function pause() {
 			window.cancelAnimationFrame(raf)
 		}
-
-		function testRules() {
-			let testFlock = new Flock(canvas, window, 1)
-			testFlock.verbosity.vision = true
-			testFlock.verbosity.decision = true
-			testFlock.boids = []
-
-			let x = canvas.width / 2
-			let y = canvas.height / 2
-			const d = 50
-			testFlock.addBoid(x, y)
-			testFlock.addBoid(x - d, y - d, Math.PI) // top left
-			testFlock.addBoid(x, y - d, Math.PI) // top
-			testFlock.addBoid(x + d, y - d, Math.PI) // top right
-			testFlock.addBoid(x - d, y, Math.PI) // left
-			testFlock.addBoid(x + d, y, Math.PI) // right
-			testFlock.addBoid(x - d, y + d, Math.PI + 1) // bottom left
-			testFlock.addBoid(x, y + d, Math.PI + 1) // bottom
-			testFlock.addBoid(x + d, y + d, Math.PI) // bottom right
-			
-			testFlock.step()
-		}
-
-		// testRules()
 
 		play()
 
